@@ -291,6 +291,11 @@ defmodule OpenAPI.Renderer do
     as: :render_spec
 
   @doc false
+  defdelegate render_operation_callback(state, operation),
+    to: OpenAPI.Renderer.Operation,
+    as: :render_callback
+
+  @doc false
   defdelegate render_schema(state, file), to: OpenAPI.Renderer.Schema, as: :render
 
   @doc false

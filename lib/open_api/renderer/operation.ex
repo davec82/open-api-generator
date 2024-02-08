@@ -77,8 +77,9 @@ defmodule OpenAPI.Renderer.Operation do
     docstring = implementation.render_operation_doc(state, operation)
     typespec = implementation.render_operation_spec(state, operation)
     function = implementation.render_operation_function(state, operation)
+    callback = implementation.render_operation_callback(state, operation)
 
-    Util.clean_list([docstring, typespec, function])
+    Util.clean_list([callback, docstring, typespec, function])
   end
 
   @doc """
@@ -349,6 +350,41 @@ defmodule OpenAPI.Renderer.Operation do
 
     quote do
       @spec unquote(name)(unquote_splicing(arguments)) :: unquote(return_type)
+    end
+  end
+
+  @doc """
+  Render the spec of an operation function
+
+  Default implementation of `c:OpenAPI.Renderer.render_operation_callback/2`.
+  """
+  @spec render_callback(State.t(), Operation.t()) :: Macro.t()
+  def render_callback(state, operation) do
+    %Operation{
+      function_name: name,
+      request_body: request_body,
+      request_path_parameters: path_params,
+      responses: responses
+    } = operation
+
+    path_parameters =
+      for %Param{value_type: type} <- path_params do
+        quote(do: unquote(Util.to_type(state, type)))
+      end
+
+    request_body =
+      if length(request_body) > 0 do
+        body_type = {:union, Enum.map(request_body, fn {_content_type, type} -> type end)}
+        quote(do: unquote(Util.to_type(state, body_type)))
+      end
+
+    opts = quote(do: keyword)
+
+    arguments = path_parameters ++ Enum.reject([request_body, opts], &is_nil/1)
+    return_type = render_return_type(state, responses)
+
+    quote do
+      @callback unquote(name)(unquote_splicing(arguments)) :: unquote(return_type)
     end
   end
 
