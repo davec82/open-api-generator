@@ -156,9 +156,19 @@ defmodule OpenAPI.Renderer.Schema do
       |> Enum.sort()
       |> Enum.dedup()
 
-    quote do
-      defstruct unquote(fields)
-    end
+    required_fields = render_required_struct_fields(schemas)
+
+    enforce_keys =
+      quote do
+        @enforce_keys unquote(required_fields)
+      end
+
+    struct_def =
+      quote do
+        defstruct unquote(fields)
+      end
+
+    [enforce_keys, struct_def]
     |> Util.put_newlines()
   end
 
@@ -228,6 +238,21 @@ defmodule OpenAPI.Renderer.Schema do
         {unquote(String.to_atom(name)), unquote(Util.to_readable_type(state, type))}
       end
     end)
+  end
+
+  defp render_required_struct_fields(schemas) do
+    Enum.reduce(schemas, MapSet.new(), fn schema, fields ->
+      new_field_names =
+        Enum.reduce(schema.fields, [], fn
+          %{name: name, required: true}, acc -> [String.to_atom(name) | acc]
+          _, acc -> acc
+        end)
+
+      new_fields = MapSet.new(new_field_names)
+      MapSet.union(fields, new_fields)
+    end)
+    |> MapSet.to_list()
+    |> Enum.sort()
   end
 
   #
